@@ -1,30 +1,37 @@
 import streamlit as st
 import requests
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # Título
-st.title("Buscador de Licitaciones - Mercado Público")
+st.title("🔍 Buscador de Licitaciones - Mercado Público (API Oficial)")
 
-# Inputs del usuario
-api_key = st.text_input("🔑 API Key de Mercado Público", type="password")
-keywords = st.text_input("🔍 Palabras clave (separadas por coma)", "servidores,switches,firewall")
-fecha_desde = st.date_input("📅 Fecha desde", datetime.today() - timedelta(days=30))
-fecha_hasta = st.date_input("📅 Fecha hasta", datetime.today())
+# Inputs
+st.write("Usando la API de pruebas de Mercado Público.")
+keywords = st.text_input("Palabras clave (separadas por coma)", "servidores,switches,firewall")
+fecha = st.date_input("Fecha a consultar", datetime.today())
+estado = st.selectbox("Estado de la licitación", ["", "publicada", "cerrada", "desierta", "adjudicada", "revocada", "suspendida", "activas", "todos"])
 
-# Botón de búsqueda
-if st.button("Buscar Licitaciones"):
-    palabras = [k.strip() for k in keywords.split(",")]
+# Ticket de pruebas (oficialmente publicado)
+api_key = "F8537A18-6766-4DEF-9E59-426B4FEE2844"
+
+# Acción
+if st.button("Buscar"):
     resultados = []
+    fecha_str = fecha.strftime("%d%m%Y")
+    palabras = [k.strip() for k in keywords.split(",")]
 
     for palabra in palabras:
-        with st.spinner(f"Buscando licitaciones para '{palabra}'..."):
+        with st.spinner(f"Buscando '{palabra}'..."):
             params = {
-                "nombre": palabra,
-                "fecha": fecha_desde.strftime("%d-%m-%Y"),
-                "fechaHasta": fecha_hasta.strftime("%d-%m-%Y"),
+                "fecha": fecha_str,
                 "ticket": api_key
             }
+            if estado:
+                params["estado"] = estado
+            if palabra:
+                params["nombre"] = palabra
+
             url = "https://api.mercadopublico.cl/servicios/v1/publico/licitaciones.json"
             response = requests.get(url, params=params)
 
@@ -41,14 +48,15 @@ if st.button("Buscar Licitaciones"):
                         "Link": lic.get("UrlLicitacion")
                     })
             else:
-                st.error(f"❌ Error al consultar '{palabra}': Código {response.status_code}")
+                st.error(f"Error: {response.status_code} - {response.text}")
 
     # Mostrar resultados
     if resultados:
         df = pd.DataFrame(resultados)
-        st.success(f"✅ Se encontraron {len(df)} resultados.")
+        st.success(f"Se encontraron {len(df)} resultados.")
         st.dataframe(df)
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Descargar CSV", data=csv, file_name="licitaciones.csv", mime="text/csv")
     else:
-        st.warning("⚠️ No se encontraron licitaciones con esos criterios.")
+        st.warning("No se encontraron resultados.")
+
